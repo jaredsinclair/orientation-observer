@@ -34,12 +34,6 @@ public final class OrientationObserver: Publisher {
     public typealias Output = UIInterfaceOrientation
     public typealias Failure = Never
 
-    // MARK: - Constants
-
-    enum Constants {
-        static let debounceInterval = OperationQueue.SchedulerTimeType.Stride(1.0 / 30.0)
-    }
-
     // MARK: - Private Statics
 
     /// Used to lock pushing/popping the instance count.
@@ -54,11 +48,11 @@ public final class OrientationObserver: Publisher {
 
     // MARK: - Private Properties
 
-    /// Convenience to absolve us from implementing Publisher from scratch.
-    private let publisher: AnyPublisher<UIInterfaceOrientation, Never>
+    /// Used to publish updates
+    private var publisher: AnyPublisher<UIInterfaceOrientation, Never>!
 
-    /// Convenience to absolve us from implementing Publisher from scratch.
-    private let passthrough: PassthroughSubject<UIInterfaceOrientation, Never>
+    /// Used to publish updates
+    private let passthrough = PassthroughSubject<UIInterfaceOrientation, Never>()
 
     /// If `true`, the developer provided an app-specific motion manager.
     private let didProvideCustomManager: Bool
@@ -70,38 +64,36 @@ public final class OrientationObserver: Publisher {
     private let lock = NSLock()
 
     /// A serial queue on which updates are processed.
-    private let queue: OperationQueue
+    private let queue = DispatchQueue(label: "com.niceboy.OrientationObserver")
+
+    /// Periodically checks the motion manager's device motion. We don't use the
+    /// block-based APIs because we aren't necessarily the only client of the
+    /// motion manager.
+    private var timer: MotionManagerTimer!
 
     /// Set to `true` when the observer is observing.
     private var isRunning = false
 
-    /// Bag of cancellables.
-    private var subscriptions = Set<AnyCancellable>()
+    /// Used for comfort fudge.
+    private var previousValue: UIInterfaceOrientation = .portrait
 
     // MARK: - Init / Deinit
 
     /// Designated initializer.
     ///
-    /// - Note: See the "About CMMotionManager" section above for details.
+    /// - parameter applicationMotionManager: See the "About CMMotionManager"
+    ///   section above for details.
     public init(applicationMotionManager: CMMotionManager? = nil) {
         motionManager = applicationMotionManager ?? OrientationObserver.sharedManager
         didProvideCustomManager = applicationMotionManager != nil
-        let subject = PassthroughSubject<UIInterfaceOrientation, Never>()
-        passthrough = subject
-        publisher = subject
+        timer = MotionManagerTimer(manager: motionManager, queue: queue)
+        publisher = passthrough
             .removeDuplicates()
-            .receive(on: OperationQueue.main)
             .eraseToAnyPublisher()
-        queue = {
-            let queue = OperationQueue()
-            queue.maxConcurrentOperationCount = 1
-            return queue
-        }()
     }
 
     deinit {
-        queue.cancelAllOperations()
-        popObserver()
+        stop()
     }
 
     // MARK: - Public Methods
@@ -109,14 +101,26 @@ public final class OrientationObserver: Publisher {
     /// Starts the motion manager and orientation updates.
     public func start() {
         guard motionManager.isDeviceMotionAvailable else { return }
-        motionManager
-            .publisher(for: \.deviceMotion)
-            .debounce(for: Constants.debounceInterval, scheduler: queue)
-            .sink { [weak self] motion in
-                self?.deviceMotionChanged(to: motion)
+
+        let shouldContinue: Bool = lock.locked {
+            guard !isRunning else { return false }
+            isRunning = true
+            return true
+        }
+
+        guard shouldContinue else { return }
+
+        if didProvideCustomManager {
+            if !motionManager.isDeviceMotionActive {
+                motionManager.startDeviceMotionUpdates(using: .xMagneticNorthZVertical)
             }
-            .store(in: &subscriptions)
-        pushObserver()
+        } else {
+            OrientationObserver.pushObserver()
+        }
+
+        timer.start { [weak self] motion in
+            self?.deviceMotionChanged(to: motion)
+        }
     }
 
     /// Stops the motion manager (unless other observers are still using it).
@@ -124,7 +128,21 @@ public final class OrientationObserver: Publisher {
     /// - Note: if your app provides a custom motion manager, your app is
     /// responsible for also stopping the motion manager.
     public func stop() {
-        popObserver()
+        let shouldContinue: Bool = lock.locked {
+            guard isRunning else { return false }
+            isRunning = false
+            return true
+        }
+
+        guard shouldContinue else { return }
+
+        timer.stop()
+
+        if didProvideCustomManager {
+            // Do not stop motion updates. The application developer will do so.
+        } else {
+            OrientationObserver.popObserver()
+        }
     }
 
     // MARK: - Publisher (Methods)
@@ -157,38 +175,8 @@ public final class OrientationObserver: Publisher {
 
     // MARK: - Private Methods (Instance)
 
-    /// Increments the observer count, starting the shared manager if needed.
-    private func pushObserver() {
-        if didProvideCustomManager {
-            if !motionManager.isDeviceMotionActive {
-                motionManager.startDeviceMotionUpdates(using: .xMagneticNorthZVertical)
-            }
-        } else {
-            lock.lock()
-            defer { lock.unlock() }
-            guard !isRunning else { return }
-            isRunning = true
-            OrientationObserver.pushObserver()
-        }
-    }
-
-    /// Decrements the observer count, stopping the shared manager if able.
-    private func popObserver() {
-        if didProvideCustomManager {
-            // Do not stop motion updates. The application developer will do so.
-        } else {
-            lock.lock()
-            defer { lock.unlock() }
-            guard isRunning else { return }
-            isRunning = false
-            subscriptions.removeAll()
-            OrientationObserver.popObserver()
-        }
-    }
-
     /// Callback received when device motion has updated.
     private func deviceMotionChanged(to deviceMotion: CMDeviceMotion?) {
-        assert(OperationQueue.current === queue)
         guard let gravity = deviceMotion?.gravity else { return }
         let position = CGPoint(x: gravity.x, y: gravity.y)
         // Check four quadrants in counterclockwise fashion, arbitrarily
@@ -198,7 +186,7 @@ public final class OrientationObserver: Publisher {
             (.landscapeLeft, .portraitUpsideDown),
             (.portrait, .landscapeLeft)
         ]
-        _ = quadrants.first {
+        let _ = quadrants.first {
             send(if: position, isBetween: $0)
         }
     }
@@ -208,7 +196,7 @@ public final class OrientationObserver: Publisher {
         let former = tuple.0
         let latter = tuple.1
         guard position.isBetween(former, and: latter) else { return false }
-        switch position.whichIsCloser(former, or: latter) {
+        switch position.whichIsCloser(former, or: latter, previous: previousValue) {
         case .former: send(former)
         case .latter: send(latter)
         }
@@ -217,7 +205,81 @@ public final class OrientationObserver: Publisher {
 
     /// Publishes `orientation`.
     private func send(_ orientation: UIInterfaceOrientation) {
+        previousValue = orientation
         passthrough.send(orientation)
+    }
+
+}
+
+// MARK: -
+
+private final class MotionManagerTimer {
+
+    private enum Constants {
+        static let interval = DispatchTimeInterval.milliseconds(60)
+        static let leeway = DispatchTimeInterval.milliseconds(3)
+    }
+
+    private let manager: CMMotionManager
+    private let queue: DispatchQueue
+    private var timer: DispatchSourceTimer?
+
+    init(manager: CMMotionManager, queue: DispatchQueue) {
+        self.manager = manager
+        self.queue = queue
+    }
+
+    deinit {
+        stop()
+    }
+
+    func start(handler: @escaping (CMDeviceMotion?) -> Void) {
+        let timer = queue.timer(
+            interval: Constants.interval,
+            leeway: Constants.leeway,
+            block: { [weak self] in
+                handler(self?.manager.deviceMotion)
+            })
+        self.timer = timer
+        timer.resume()
+    }
+
+    func stop() {
+        timer?.cancel()
+        timer = nil
+    }
+
+}
+
+// MARK: -
+
+extension DispatchQueue {
+
+    func timer(interval: DispatchTimeInterval, leeway: DispatchTimeInterval, block: @escaping () -> Void) -> DispatchSourceTimer {
+        let timer = DispatchSource.makeTimerSource(
+            flags: DispatchSource.TimerFlags(rawValue: 0),
+            queue: self
+        )
+        timer.schedule(
+            deadline: DispatchTime.now(),
+            repeating: interval,
+            leeway: leeway
+        )
+        timer.setEventHandler(handler: block)
+        return timer
+    }
+
+}
+
+// MARK: -
+
+private extension NSLock {
+
+    func locked<Return>(block: () -> Return) -> Return {
+        lock()
+        let value = block()
+        unlock()
+        return value
     }
 
 }
@@ -234,6 +296,10 @@ private extension UIInterfaceOrientation {
         case .landscapeRight: return .landscapeRight
         @unknown default: return .portrait
         }
+    }
+
+    func hasOppositeDirectionality(from other: UIInterfaceOrientation) -> Bool {
+        isLandscape ? other.isPortrait : other.isLandscape
     }
 
 }
@@ -257,9 +323,10 @@ private extension CGPoint {
         return (a.squared + b.squared).squareRoot()
     }
 
-    func whichIsCloser(_ a: UIInterfaceOrientation, or b: UIInterfaceOrientation) -> FormerOrLatter {
-        let distanceToA = distance(to: a.motionVector)
-        let distanceToB = distance(to: b.motionVector)
+    func whichIsCloser(_ a: UIInterfaceOrientation, or b: UIInterfaceOrientation, previous: UIInterfaceOrientation) -> FormerOrLatter {
+        let comfortFudge: CGFloat = 4
+        let distanceToA = distance(to: a.motionVector) * (a.hasOppositeDirectionality(from: previous) ? comfortFudge : 1)
+        let distanceToB = distance(to: b.motionVector) * (b.hasOppositeDirectionality(from: previous) ? comfortFudge : 1)
         return distanceToA < distanceToB ? .former : .latter
     }
 
@@ -282,6 +349,22 @@ private extension CGFloat {
 
     var squared: CGFloat {
         CGFloat(pow(Double(self), 2))
+    }
+
+}
+
+// MARK: -
+
+private extension OperationQueue {
+
+    func asap(_ block: @escaping () -> Void) {
+        if OperationQueue.current == self {
+            block()
+        } else {
+            addOperation {
+                block()
+            }
+        }
     }
 
 }
