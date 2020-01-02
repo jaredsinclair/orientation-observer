@@ -35,6 +35,14 @@ public final class OrientationObserver: Publisher {
     public typealias Output = UIInterfaceOrientation
     public typealias Failure = Never
 
+    // MARK: - Constants
+
+    private enum Constants {
+        static let accelerationThresholdGForce: Double = 0.05
+        static let accelerationThresholdCount: Int = 5
+        static let accelerationBufferSize: Int = 20
+    }
+
     // MARK: - Private Statics
 
     /// Used to lock pushing/popping the instance count.
@@ -79,7 +87,7 @@ public final class OrientationObserver: Publisher {
     private var previousValue: UIInterfaceOrientation = .portrait
 
     /// @JARED
-    private var accelerationBuffer = CircularBuffer<Double>(capacity: 30)
+    private var accelerationBuffer = CircularBuffer<Double>(capacity: Constants.accelerationBufferSize)
 
     // MARK: - Init / Deinit
 
@@ -184,8 +192,12 @@ public final class OrientationObserver: Publisher {
 
     /// Callback received when device motion has updated.
     private func process(_ motion: CMDeviceMotion?) {
-        guard let acceleration = motion?.userAcceleration.x else { return }
-        accelerationBuffer.append(acceleration)
+
+        guard let acceleration = motion?.userAcceleration else { return }
+        accelerationBuffer.append(abs(acceleration.x))
+        let count = accelerationBuffer.count { $0 > Constants.accelerationThresholdGForce }
+        guard count < Constants.accelerationThresholdCount else { return }
+
         guard let gravity = motion?.gravity else { return }
         let position = CGPoint(x: gravity.x, y: gravity.y)
         // Check four quadrants in counterclockwise fashion, arbitrarily
@@ -198,6 +210,7 @@ public final class OrientationObserver: Publisher {
         let _ = quadrants.first {
             send(if: position, isBetween: $0)
         }
+
     }
 
     /// Sends the resolved orientation iff `position` is between the two values.
@@ -378,6 +391,22 @@ private extension OperationQueue {
                 block()
             }
         }
+    }
+
+}
+
+// MARK: -
+
+extension Collection {
+
+    func count(where evaluation: (Element) -> Bool) -> Int {
+        var tally = 0
+        forEach {
+            if evaluation($0) {
+                tally += 1
+            }
+        }
+        return tally
     }
 
 }
