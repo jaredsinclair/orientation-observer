@@ -40,7 +40,7 @@ public final class OrientationObserver: Publisher {
     private enum Constants {
         static let accelerationThresholdGForce: Double = 0.05
         static let accelerationThresholdCount: Int = 5
-        static let accelerationBufferSize: Int = 15
+        static let accelerationBufferSize: Int = 10
     }
 
     // MARK: - Private Statics
