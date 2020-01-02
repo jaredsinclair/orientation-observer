@@ -16,6 +16,10 @@
 		7FFE044E23BD3951008D34B2 /* OrientationObserver.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7FFE044723BD3951008D34B2 /* OrientationObserver.framework */; };
 		7FFE044F23BD3951008D34B2 /* OrientationObserver.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7FFE044723BD3951008D34B2 /* OrientationObserver.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7FFE045523BD396B008D34B2 /* OrientationObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFE045423BD396B008D34B2 /* OrientationObserver.swift */; };
+		7FFE045723BDA5E1008D34B2 /* CircularBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFE045623BDA5E1008D34B2 /* CircularBuffer.swift */; };
+		7FFE045923BDA67E008D34B2 /* ByteBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFE045823BDA67E008D34B2 /* ByteBuffer.swift */; };
+		7FFE045B23BDA769008D34B2 /* IntegerTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFE045A23BDA769008D34B2 /* IntegerTypes.swift */; };
+		7FFE045D23BDA983008D34B2 /* RingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFE045C23BDA983008D34B2 /* RingBuffer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +58,10 @@
 		7FFE044723BD3951008D34B2 /* OrientationObserver.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = OrientationObserver.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FFE044A23BD3951008D34B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7FFE045423BD396B008D34B2 /* OrientationObserver.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = OrientationObserver.swift; path = ../../Sources/OrientationObserver/OrientationObserver.swift; sourceTree = "<group>"; };
+		7FFE045623BDA5E1008D34B2 /* CircularBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CircularBuffer.swift; path = ../../Sources/OrientationObserver/CircularBuffer.swift; sourceTree = "<group>"; };
+		7FFE045823BDA67E008D34B2 /* ByteBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ByteBuffer.swift; path = ../../Sources/OrientationObserver/ByteBuffer.swift; sourceTree = "<group>"; };
+		7FFE045A23BDA769008D34B2 /* IntegerTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = IntegerTypes.swift; path = ../../Sources/OrientationObserver/IntegerTypes.swift; sourceTree = "<group>"; };
+		7FFE045C23BDA983008D34B2 /* RingBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingBuffer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -112,6 +120,10 @@
 			children = (
 				7FFE044A23BD3951008D34B2 /* Info.plist */,
 				7FFE045423BD396B008D34B2 /* OrientationObserver.swift */,
+				7FFE045C23BDA983008D34B2 /* RingBuffer.swift */,
+				7FFE045623BDA5E1008D34B2 /* CircularBuffer.swift */,
+				7FFE045A23BDA769008D34B2 /* IntegerTypes.swift */,
+				7FFE045823BDA67E008D34B2 /* ByteBuffer.swift */,
 			);
 			path = OrientationObserver;
 			sourceTree = "<group>";
@@ -239,6 +251,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7FFE045723BDA5E1008D34B2 /* CircularBuffer.swift in Sources */,
+				7FFE045D23BDA983008D34B2 /* RingBuffer.swift in Sources */,
+				7FFE045B23BDA769008D34B2 /* IntegerTypes.swift in Sources */,
+				7FFE045923BDA67E008D34B2 /* ByteBuffer.swift in Sources */,
 				7FFE045523BD396B008D34B2 /* OrientationObserver.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

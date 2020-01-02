@@ -1,0 +1,16 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "CircularBuffer",
+        "repositoryURL": "https://github.com/jaredsinclair/CircularBuffer",
+        "state": {
+          "branch": null,
+          "revision": "d9e78a3981ad14de6368e64ef9cb27105926f346",
+          "version": "1.0.0"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

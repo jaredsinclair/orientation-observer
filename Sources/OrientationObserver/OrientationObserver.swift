@@ -9,6 +9,7 @@
 import UIKit
 import CoreMotion
 import Combine
+import CircularBuffer
 
 /// Observes device motion updates via CoreMotion, interpreting and publishing
 /// those updates as UIInterfaceOrientation changes.
@@ -113,13 +114,14 @@ public final class OrientationObserver: Publisher {
         if didProvideCustomManager {
             if !motionManager.isDeviceMotionActive {
                 motionManager.startDeviceMotionUpdates(using: .xMagneticNorthZVertical)
+                motionManager.startAccelerometerUpdates()
             }
         } else {
             OrientationObserver.pushObserver()
         }
 
         timer.start { [weak self] motion in
-            self?.deviceMotionChanged(to: motion)
+            self?.process(motion)
         }
     }
 
@@ -148,7 +150,9 @@ public final class OrientationObserver: Publisher {
     // MARK: - Publisher (Methods)
 
     public func receive<S>(subscriber: S) where S : Subscriber, OrientationObserver.Failure == S.Failure, OrientationObserver.Output == S.Input {
-        publisher.receive(subscriber: subscriber)
+        publisher
+            .receive(on: DispatchQueue.main)
+            .receive(subscriber: subscriber)
     }
 
     // MARK: - Private Methods (Static)
@@ -176,8 +180,10 @@ public final class OrientationObserver: Publisher {
     // MARK: - Private Methods (Instance)
 
     /// Callback received when device motion has updated.
-    private func deviceMotionChanged(to deviceMotion: CMDeviceMotion?) {
-        guard let gravity = deviceMotion?.gravity else { return }
+    private func process(_ motion: CMDeviceMotion?) {
+        guard let acceleration = motion?.userAcceleration else { return }
+
+        guard let gravity = motion?.gravity else { return }
         let position = CGPoint(x: gravity.x, y: gravity.y)
         // Check four quadrants in counterclockwise fashion, arbitrarily
         let quadrants: [(UIInterfaceOrientation, UIInterfaceOrientation)] = [
@@ -210,6 +216,10 @@ public final class OrientationObserver: Publisher {
     }
 
 }
+
+// MARK: -
+
+//private final
 
 // MARK: -
 
