@@ -86,7 +86,12 @@ public final class OrientationObserver: Publisher {
     /// Used for comfort fudge.
     private var previousValue: UIInterfaceOrientation = .portrait
 
-    /// @JARED
+    /// Accumulates a buffer of x-axis acceleration samples (measured in G's).
+    /// Orientation updates are suppressed whenever there is sufficient noise in
+    /// the buffer, as measured by a blunt but effective count of the number of
+    /// samples in the buffer that are outside of a predetermined magnitude.
+    /// This is a more effective means of suppressing too-frequent updates than
+    /// a Combine debounce. It's also more accurate relative to the task.
     private var accelerationBuffer = CircularBuffer<Double>(capacity: Constants.accelerationBufferSize)
 
     // MARK: - Init / Deinit
