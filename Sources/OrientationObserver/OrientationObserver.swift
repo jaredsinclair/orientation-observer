@@ -78,6 +78,9 @@ public final class OrientationObserver: Publisher {
     /// Used for comfort fudge.
     private var previousValue: UIInterfaceOrientation = .portrait
 
+    /// @JARED
+    private var accelerationBuffer = CircularBuffer<Double>(capacity: 30)
+
     // MARK: - Init / Deinit
 
     /// Designated initializer.
@@ -181,8 +184,8 @@ public final class OrientationObserver: Publisher {
 
     /// Callback received when device motion has updated.
     private func process(_ motion: CMDeviceMotion?) {
-        guard let acceleration = motion?.userAcceleration else { return }
-
+        guard let acceleration = motion?.userAcceleration.x else { return }
+        accelerationBuffer.append(acceleration)
         guard let gravity = motion?.gravity else { return }
         let position = CGPoint(x: gravity.x, y: gravity.y)
         // Check four quadrants in counterclockwise fashion, arbitrarily
