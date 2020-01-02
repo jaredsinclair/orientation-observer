@@ -10,18 +10,6 @@ import UIKit
 import OrientationObserver
 import Combine
 
-extension UIInterfaceOrientation: CustomDebugStringConvertible {
-    public var debugDescription: String {
-        switch self {
-        case .landscapeLeft: return ".landscapeLeft"
-        case .landscapeRight: return ".landscapeRight"
-        case .portrait: return ".portrait"
-        case .portraitUpsideDown: return ".portraitUpsideDown"
-        default: return "<unknown>"
-        }
-    }
-}
-
 class ViewController: UIViewController {
 
     let observer = OrientationObserver()
@@ -32,10 +20,21 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         observer.sink { [weak self] orientation in
-            print("====================================\n\(orientation)\n====================================")
             self?.label.text = "\(orientation)"
         }.store(in: &subscriptions)
         observer.start()
     }
 
+}
+
+extension UIInterfaceOrientation: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        switch self {
+        case .landscapeLeft: return ".landscapeLeft"
+        case .landscapeRight: return ".landscapeRight"
+        case .portrait: return ".portrait"
+        case .portraitUpsideDown: return ".portraitUpsideDown"
+        default: return "<unknown>"
+        }
+    }
 }
